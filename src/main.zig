@@ -87,11 +87,6 @@ pub fn entry(io: Io, allocator: std.mem.Allocator, download_options: DownloadOpt
             std.process.cleanExit(io);
             unreachable;
         },
-        error.NotOkStatus => {
-            er("Http request to youtube was completed unsuccesfully. Please, try again.", .{});
-            std.process.cleanExit(io);
-            unreachable;
-        },
         else => return err
     };
 
@@ -167,22 +162,13 @@ fn fetchYtForApiKey(io: Io, client: *http.Client, video_url: []const u8, allocat
 
 fn parseInternalApiKey(html_page: []const u8) ![]const u8 {
     const key_name = "\"INNERTUBE_API_KEY\":";
-    const hit = std.mem.indexOf(u8, html_page, key_name);
+    const begin_hit = std.mem.indexOf(u8, html_page, key_name);
 
-    if (hit == null) return error.KeyNotFound;
+    if (begin_hit == null) return error.KeyNotFound;
 
-    const key_begin = hit.? + key_name.len + 1; // with " \" " quote
-
-    var key_len: usize = 0;
-    for (html_page[key_begin ..], 0..) |char, i| {
-        if (char == '\"') {
-            key_len = i;
-            break;
-        }
-    }
-
-    const key_end = key_begin + key_len;
-    const key = html_page[key_begin .. key_end];
+    const key_begin = begin_hit.? + key_name.len + 1; // with " \" " quote
+    const end_hit = std.mem.indexOfScalar(u8, html_page[key_begin ..], '\"') orelse unreachable;
+    const key = html_page[key_begin .. key_begin + end_hit];
     
     return key;
 }
@@ -239,6 +225,8 @@ fn fetchYtPlayerResponse(client: *http.Client, allocator: std.mem.Allocator, yt_
 
     return result.status.phrase() orelse "UnknownStatus";
 }
+
+
 
 
 
