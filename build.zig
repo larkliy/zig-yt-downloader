@@ -53,6 +53,12 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    if (exe.root_module.optimize != .Debug) {
+        exe.root_module.strip = true;
+        exe.root_module.single_threaded = false;
+        exe.root_module.unwind_tables = .none;
+    }
+
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
     // step). By default the install prefix is `zig-out/` but can be overridden

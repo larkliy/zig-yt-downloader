@@ -82,8 +82,13 @@ pub fn entry(io: Io, allocator: std.mem.Allocator, download_options: DownloadOpt
             std.process.cleanExit(io);
             unreachable;
         },
-        error.DoesNotCountainQuery => {
+        error.DoesNotCountainsQuery => {
             er("Your link doesn't contain a query. Link {s}", .{ video_url });
+            std.process.cleanExit(io);
+            unreachable;
+        },
+        error.NotOkStatus => {
+            er("Http request to youtube was completed unsuccesfully. Please, try again.", .{});
             std.process.cleanExit(io);
             unreachable;
         },
@@ -167,11 +172,18 @@ fn parseInternalApiKey(html_page: []const u8) ![]const u8 {
     if (hit == null) return error.KeyNotFound;
 
     const key_begin = hit.? + key_name.len + 1; // with " \" " quote
-    const key_len = 39;
+
+    var key_len: usize = 0;
+    for (html_page[key_begin ..], 0..) |char, i| {
+        if (char == '\"') {
+            key_len = i;
+            break;
+        }
+    }
+
     const key_end = key_begin + key_len;
-
     const key = html_page[key_begin .. key_end];
-
+    
     return key;
 }
 
@@ -186,7 +198,7 @@ fn extractVideoIdFromUrl(video_url: []const u8) ![]const u8 {
         return query_str[hit.? + 1..];
     }
 
-    return error.DoesNotCountainQuery;
+    return error.DoesNotCountainsQuery;
 }
 
 fn fetchYtPlayerResponse(client: *http.Client, allocator: std.mem.Allocator, yt_options: YTOptions) ![]const u8 {
@@ -206,7 +218,7 @@ fn fetchYtPlayerResponse(client: *http.Client, allocator: std.mem.Allocator, yt_
         }
     };
 
-    var writer_buf: [1024]u8 = undefined;
+    var writer_buf: [2048]u8 = undefined;
     var fixed: Io.Writer = .fixed(&writer_buf);
     try std.json.Stringify.value(payload, .{}, &fixed);
     
@@ -231,9 +243,7 @@ fn fetchYtPlayerResponse(client: *http.Client, allocator: std.mem.Allocator, yt_
 
 
 
-
-
-test "json_anonymous_struct:" {
+test "json anonymous struct:" {
     const payload = .{
         .videoId = "23123",
         .context = .{
@@ -252,7 +262,7 @@ test "json_anonymous_struct:" {
     std.debug.print("{s}\n", .{ json_string });
 }
 
-test "yt_response" {
+test "yt response" {
     const io = std.testing.io;
     const gpa = std.testing.allocator;
 
@@ -273,7 +283,7 @@ test "yt_response" {
     std.debug.print("Length: {d}\n", .{ response.len });
 }
 
-test "extract_streamingData" {
+test "extract streamingData" {
     const io = std.testing.io;
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
